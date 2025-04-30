@@ -27,7 +27,7 @@ def generate_sql_from_json(json_file, pdf_name):
         if chapter not in chapter_pdf_mapping:
             chapter_pdf_mapping[chapter] = next_pdf_id
             sql_statements.append(
-                f"INSERT INTO pdfs (id, pdf_name, subject, exam_type, chapter_name, difficulty_level) "
+                f"INSERT INTO pdfs (id, file_name, subject, exam_type, topic_name, difficulty_level) "
                 f"VALUES ({next_pdf_id}, '{pdf_name}', '{subject}', 'NEET', '{chapter}', 'simple');"
             )
             next_pdf_id += 1

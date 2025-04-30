@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, scrolledtext
 import uuid
 import json
+import threading
 from PIL import Image, ImageTk
 from extractor import convert_pdf_to_images, get_ocr_data
 from diagram_linker import run_yolo_and_save_with_boxes, build_final_diagram_json
@@ -12,15 +13,19 @@ from gemini_integration import call_gemini_api_page_by_page
 from Gemini_SQL_generator import generate_sql_from_json
 import boto3
 
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"C:\Users\LENOVO\Desktop\OldFiles\dataExtractor_After_getting\exam-portal-458306-60a57380e9f4.json"
+
 # S3 client configuration for AWS
 s3 = boto3.client(
     's3',
-    aws_access_key_id='<Access key here>',
-    aws_secret_access_key='<Screat key here>',
-    region_name='<region here>'
+    aws_access_key_id='UF1SDXG9QP3DY6K787DV',
+    aws_secret_access_key='NcW0uE4WiYLoveHdefOJCBNA1aho2aiSwKQFkMe4',
+    region_name='us-central-1',
+    endpoint_url='https://s3.us-central-1.wasabisys.com'
 )
 
-BUCKET_NAME = 'examportal-diagrams'
+BUCKET_NAME = 'examportal'
 
 UPLOAD_FOLDER = "uploads"
 RESPONSE_FOLDER = "responses"
@@ -67,9 +72,13 @@ def select_file(root):
         return
     unique_filename = f"{uuid.uuid4().hex}.pdf"
     save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-    shutil.copy(file_path, save_path)
-    update_gui_status("✅ PDF uploaded successfully.")
-    process_pdf(save_path)
+    
+    try:
+        shutil.copy(file_path, save_path)
+        update_gui_status("✅ PDF uploaded successfully.")
+        threading.Thread(target=process_pdf, args=(save_path,)).start()
+    except Exception as e:
+        update_gui_status(f"❌ Error uploading file: {e}")
 
 def process_pdf(pdf_path):
     update_gui_status("🔄 Converting PDF to images...")
@@ -109,6 +118,7 @@ def process_pdf(pdf_path):
     except Exception as e:
         update_gui_status(f"❌ Error during YOLO processing: {e}")
         return
+
     update_gui_status("🔄 Merging extracted text and detected diagrams...")
     try:
         diagram_info_json = "diagram_info.json"
@@ -149,13 +159,24 @@ def upload_images_to_s3(image_paths):
     image_urls = []
     for image_path in image_paths:
         object_name = os.path.basename(image_path)
+        print(f"Uploading {image_path} as {object_name} to bucket {BUCKET_NAME}")
         try:
             s3.upload_file(image_path, BUCKET_NAME, object_name, ExtraArgs={'ACL': 'public-read'})
-            file_url = f"https://{BUCKET_NAME}.s3.{s3.meta.region_name}.amazonaws.com/{object_name}"
+            file_url = f"https://s3.us-central-1.wasabisys.com/{BUCKET_NAME}/{object_name}"
             image_urls.append(file_url)
         except Exception as e:
             print(f"Error uploading image {image_path} to S3: {e}")
     return image_urls
+
+import json
+import os
+
+def clean_json_content(content):
+    # Check if the content starts with "```json" and ends with "```"
+    if content.startswith("```json") and content.endswith("```"):
+        # Remove the markdown code block indicators
+        content = content[7:-3].strip()  # Removes "```json" at the start and "```" at the end
+    return content
 
 def generate_sql():
     update_gui_status("🔄 Merging all response JSON files...")
@@ -167,9 +188,18 @@ def generate_sql():
             file_path = os.path.join(RESPONSE_FOLDER, filename)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        combined_data.extend(data)
+                    content = f.read()
+                    cleaned_content = clean_json_content(content)  # Clean the content to remove markdown
+                    
+                    # Try to parse the cleaned JSON content
+                    try:
+                        data = json.loads(cleaned_content)
+                        if isinstance(data, list):
+                            combined_data.extend(data)
+                    except json.JSONDecodeError as e:
+                        update_gui_status(f"❌ Error parsing {filename}: {e}")
+                        continue
+                    
             except Exception as e:
                 update_gui_status(f"❌ Error reading {filename}: {e}")
 
@@ -197,6 +227,7 @@ def generate_sql():
 
     except Exception as e:
         update_gui_status(f"❌ Error during SQL generation: {e}")
+
 
 if __name__ == "__main__":
     create_gui()

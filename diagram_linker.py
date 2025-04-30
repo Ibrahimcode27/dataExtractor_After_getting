@@ -7,9 +7,10 @@ import boto3
 
 s3 = boto3.client(
     's3',
-    aws_access_key_id='<Access key here>',
-    aws_secret_access_key='<Screat-key-here>',
-    region_name='<your region here>' 
+    aws_access_key_id='UF1SDXG9QP3DY6K787DV',
+    aws_secret_access_key='NcW0uE4WiYLoveHdefOJCBNA1aho2aiSwKQFkMe4',
+    region_name='us-central-1',
+    endpoint_url='https://s3.us-central-1.wasabisys.com'
 )
 BUCKET_NAME = 'examportal-diagrams' 
 
@@ -127,7 +128,7 @@ def upload_image_to_s3(file_path):
         # Upload image to AWS S3
         object_name = os.path.basename(file_path)
         s3.upload_file(file_path, BUCKET_NAME, object_name, ExtraArgs={'ACL': 'public-read'})
-        s3_url = f"https://{BUCKET_NAME}.s3.{s3.meta.region_name}.amazonaws.com/{object_name}"
+        s3_url = f"https://s3.us-central-1.wasabisys.com/{BUCKET_NAME}/{object_name}"
         print(f"File uploaded to AWS S3. Accessible at: {s3_url}")
         return s3_url
     except Exception as e:
