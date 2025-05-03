@@ -1,0 +1,8 @@
+Pillow
+pdf2image
+google-cloud-vision
+opencv-python
+ultralytics
+boto3
+google-generativeai
+mysql-connector-python
